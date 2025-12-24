@@ -40,8 +40,8 @@ def test_write_cargo_config_toml_creates_new_file(temp_workspace):
     }
 
 
-def test_write_cargo_config_toml_overwrites_existing(temp_workspace):
-    """Test that the implementation overwrites existing config.toml."""
+def test_write_cargo_config_toml_merges_entries(temp_workspace):
+    """Test that the it merges its changes and preserves existing config."""
     config_dir = temp_workspace / ".cargo"
     config_dir.mkdir(exist_ok=True)
     config_file = config_dir / "config.toml"
@@ -70,8 +70,43 @@ def test_write_cargo_config_toml_overwrites_existing(temp_workspace):
     with config_file.open("r") as f:
         content = toml.load(f)
 
-    assert "build" not in content
+    # Existing config is preserved
+    assert content["build"]["target"] == "x86_64-unknown-linux-gnu"
+    assert content["build"]["jobs"] == 4
+
+    # Old crates-io patch is removed
     assert "existing_package" not in content["patch"]["crates-io"]
+
+    # New crates-io patch is present
     assert content["patch"]["crates-io"]["new_package"] == {
         "path": "/path/to/new_package"
     }
+
+
+def test_write_cargo_config_toml_updates_existing_patch(temp_workspace):
+    """Test that updating an existing patch overwrites it."""
+    config_dir = temp_workspace / ".cargo"
+    config_dir.mkdir(exist_ok=True)
+    config_file = config_dir / "config.toml"
+
+    existing_content = {
+        "patch": {
+            "crates-io": {
+                "my_package": {"path": "/old/path"},
+            }
+        }
+    }
+
+    with config_file.open("w") as f:
+        toml.dump(existing_content, f)
+
+    package_paths = {
+        "my_package": Path("/new/path"),
+    }
+
+    write_cargo_config_toml(package_paths)
+
+    with config_file.open("r") as f:
+        content = toml.load(f)
+
+    assert content["patch"]["crates-io"]["my_package"] == {"path": "/new/path"}
