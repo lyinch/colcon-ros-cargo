@@ -125,9 +125,7 @@ def write_cargo_config_toml(package_paths):
         content['patch'] = {}
 
     # remove old entries
-    content['patch']['crates-io'] = {}
-
-    content['patch']['crates-io'].update(patches)
+    content['patch']['crates-io'] = patches
 
     with cargo_config_toml_out.open('w') as toml_file:
         toml.dump(content, toml_file)
